@@ -2,24 +2,51 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>社内研修用 性格診断</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>社内研修用 性格診断ゲーム</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
-    <h1>社内研修用 性格診断</h1>
-    <p>この診断は、研修内の相互理解ゲームのために使用します。</p>
+  <main class="app-shell">
+    <section id="introArea" class="panel hero">
+      <p class="eyebrow">相互理解ワーク</p>
+      <h1>社内研修用 性格診断ゲーム</h1>
+      <p class="lead">30問の質問に答えると、研修内で会話を始めやすくするための匿名カードを作成します。</p>
 
-    <button id="startButton">診断を開始する</button>
+      <div class="notice-card" aria-label="目的と注意事項">
+        <h2>目的と注意事項</h2>
+        <ul>
+          <li>この診断は、医療・心理判定ではなく、研修内の会話を促すための簡易診断です。</li>
+          <li>人事評価、能力評価、配属判断には使用しません。</li>
+          <li>個人名、メールアドレス、診断結果は保存されません。ブラウザ内でその場限り表示します。</li>
+          <li>結果には点数を表示せず、職場での見え方や協働のヒントを文章で示します。</li>
+          <li>どのタイプにもそれぞれの特徴があります。評価や比較ではなく、違いを話す材料として使ってください。</li>
+        </ul>
+      </div>
 
-    <section id="questionArea" class="hidden">
-      <h2 id="questionText"></h2>
-      <div id="answerButtons"></div>
+      <button id="startButton" class="primary-button">診断を開始する</button>
     </section>
 
-    <section id="resultArea" class="hidden">
-      <h2>診断結果</h2>
-      <div id="resultText"></div>
+    <section id="questionArea" class="panel hidden" aria-live="polite">
+      <div class="progress-wrap">
+        <span id="progressText">1 / 30</span>
+        <div class="progress-bar" aria-hidden="true"><div id="progressFill"></div></div>
+      </div>
+      <p class="question-label">5段階で選んでください</p>
+      <h2 id="questionText"></h2>
+      <div id="answerButtons" class="answer-grid"></div>
+    </section>
+
+    <section id="resultArea" class="panel hidden">
+      <p class="eyebrow">診断結果</p>
+      <h2>研修ゲーム用 結果カード</h2>
+      <p class="result-note">点数は表示していません。匿名カードをコピーして、研修内の共有や対話に利用できます。</p>
+      <article id="resultCard" class="result-card"></article>
+      <div class="button-row">
+        <button id="copyButton" class="primary-button">結果カードをコピーする</button>
+        <button id="restartButton" class="secondary-button">もう一度診断する</button>
+      </div>
+      <p id="copyMessage" class="copy-message" role="status"></p>
     </section>
   </main>
 
