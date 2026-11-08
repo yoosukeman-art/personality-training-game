@@ -1,0 +1,38 @@
+name: Hougen Wan Fast Probe
+
+on:
+  push:
+    branches:
+      - chatgpt-hougen-audio-20261108
+    paths:
+      - ".github/workflows/hougen-wanfast-probe.yml"
+      - "tools/wanfast_probe.py"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python -m pip install requests
+      - name: Extract approved reference
+        run: |
+          curl -fL --retry 4 -o approved_motion.mp4 "https://resource2.heygen.ai/videos/1a9a7cb27ddd4e12a450d414fc729ff9/1a9a7cb27ddd4e12a450d414fc729ff9/01a1b907-e9e8-767f-ac5c-98b608577e15.mp4"
+          ffmpeg -y -ss 1.0 -i approved_motion.mp4 -frames:v 1 -q:v 2 start.jpg
+      - name: Generate Wan Fast probe
+        run: python tools/wanfast_probe.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wanfast-probe
+          path: |
+            probe.mp4
+            probe_mid.jpg
+            probe.url.txt
+          retention-days: 1
