@@ -18,6 +18,7 @@ jobs:
     env:
       VOICEVOX_VERSION: "0.17.1"
       GH_TOKEN: ${{ github.token }}
+      NO_COLOR: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -34,7 +35,7 @@ jobs:
       - name: Download only required VOICEVOX runtime, models, and dictionary
         run: |
           set -euxo pipefail
-          ./download             --exclude c-api             --devices cpu             --models-pattern '[04].vvm'             --output voicevox_core
+          printf 'y\n' | ./download             --exclude c-api             --devices cpu             --models-pattern '[04].vvm'             --output voicevox_core
           test -f voicevox_core/models/vvms/0.vvm
           test -f voicevox_core/models/vvms/4.vvm
           test -f voicevox_core/dict/open_jtalk_dic_utf_8-1.11/sys.dic
@@ -54,6 +55,7 @@ jobs:
           m=json.load(open("hougen_audio_manifest.json",encoding="utf-8"))
           assert len(m)==28
           assert sorted(set(x["speaker"] for x in m)) == [10,11]
+          assert all(x["duration_sec"] > 0.2 for x in m)
           print("verified", len(m), "files")
           print("duration_total", round(sum(x["duration_sec"] for x in m),2))
           PY
