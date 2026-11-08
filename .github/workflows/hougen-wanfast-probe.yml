@@ -21,11 +21,25 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
-          python -m pip install requests
-      - name: Extract approved reference
+          python -m pip install requests pillow
+      - name: Build clean approved character reference
         run: |
           curl -fL --retry 4 -o approved_motion.mp4 "https://resource2.heygen.ai/videos/1a9a7cb27ddd4e12a450d414fc729ff9/1a9a7cb27ddd4e12a450d414fc729ff9/01a1b907-e9e8-767f-ac5c-98b608577e15.mp4"
-          ffmpeg -y -ss 1.0 -i approved_motion.mp4 -frames:v 1 -q:v 2 start.jpg
+          ffmpeg -y -ss 1.0 -i approved_motion.mp4 -frames:v 1 -q:v 2 raw.jpg
+          python - <<'PY'
+          from PIL import Image,ImageFilter,ImageDraw
+          src=Image.open('raw.jpg').convert('RGB')
+          bg=src.resize((720,1280)).filter(ImageFilter.GaussianBlur(28))
+          w,h=src.size
+          core=src.crop((int(w*0.20),int(h*0.16),w,int(h*0.72)))
+          core=core.resize((650,800),Image.Resampling.LANCZOS)
+          m=Image.new('L',core.size,0); d=ImageDraw.Draw(m)
+          d.rounded_rectangle((20,20,630,780),radius=55,fill=255)
+          m=m.filter(ImageFilter.GaussianBlur(18))
+          bg.paste(core,(35,220),m)
+          bg.save('start.jpg',quality=92)
+          PY
+          test -s start.jpg
       - name: Generate Wan Fast probe
         run: python tools/wanfast_probe.py
       - uses: actions/upload-artifact@v4
