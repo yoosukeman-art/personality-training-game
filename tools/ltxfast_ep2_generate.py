@@ -25,7 +25,7 @@ def filedata(path,name):
 
 def submit(img_path,orig,prompt):
     # prompt, neg, image, video_hidden, height, width, mode, duration, frames_to_use, seed, randomize, guidance, improve_texture
-    data=[prompt,NEG,filedata(img_path,orig),None,1280,768,"image-to-video",8.5,9,42,True,3.0,True]
+    data=[prompt,NEG,filedata(img_path,orig),None,1024,576,"image-to-video",5.0,9,42,True,3.0,False]
     for a in range(4):
         r=requests.post(BASE+f"/gradio_api/call/{API}",json={"data":data},timeout=120)
         print("submit",a,r.status_code,r.text[:300],flush=True)
@@ -70,7 +70,7 @@ def download(url,out):
 def run(x): print("+"," ".join(x),flush=True); subprocess.run(x,check=True)
 
 cur="start.jpg"
-for i,p in enumerate(PROMPTS,1):
+for i,p in enumerate(PROMPTS[:1],1):
     up=upload_image(cur)
     eid=submit(up,os.path.basename(cur),p)
     print("event",i,eid,flush=True)
