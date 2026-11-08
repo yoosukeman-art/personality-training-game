@@ -1,0 +1,104 @@
+name: Hougen EP2 LTX Fast Build
+
+on:
+  push:
+    branches:
+      - chatgpt-hougen-audio-20261108
+    paths:
+      - ".github/workflows/hougen-ep2-ltxfast.yml"
+      - "tools/ltxfast_ep2_generate.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare toolchain
+        run: |
+          set -euxo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+          python -m pip install requests
+
+      - name: Extract approved character reference
+        run: |
+          set -euxo pipefail
+          curl -fL --retry 4 -o approved_motion.mp4 "https://resource2.heygen.ai/videos/1a9a7cb27ddd4e12a450d414fc729ff9/1a9a7cb27ddd4e12a450d414fc729ff9/01a1b907-e9e8-767f-ac5c-98b608577e15.mp4"
+          ffmpeg -y -ss 1.0 -i approved_motion.mp4 -frames:v 1 -q:v 2 start.jpg
+
+      - name: Generate three motion clips
+        run: |
+          set -euxo pipefail
+          python tools/ltxfast_ep2_generate.py
+          for i in 1 2 3; do test -s "clip${i}.mp4"; ffmpeg -v error -i "clip${i}.mp4" -f null -; done
+
+      - name: Recover VOICEVOX audio
+        run: |
+          set -euxo pipefail
+          mkdir recovered
+          gh run download 42435942621 --repo yoosukeman-art/personality-training-game -n hougen-voicevox-audio-28 -D recovered
+          ffmpeg -y             -i recovered/hougen_audio/ep02_seg01_spk10.wav             -i recovered/hougen_audio/ep02_seg02_spk11.wav             -i recovered/hougen_audio/ep02_seg03_spk10.wav             -i recovered/hougen_audio/ep02_seg04_spk11.wav             -filter_complex "[0:a][1:a][2:a][3:a]concat=n=4:v=0:a=1,aresample=48000,aformat=channel_layouts=stereo,loudnorm=I=-16:LRA=7:TP=-1.5[a]"             -map "[a]" narration.wav
+
+      - name: Stitch and retime
+        run: |
+          set -euxo pipefail
+          printf "file 'clip1.mp4'\nfile 'clip2.mp4'\nfile 'clip3.mp4'\n" > clips.txt
+          ffmpeg -y -f concat -safe 0 -i clips.txt -an -c:v libx264 -pix_fmt yuv420p raw_motion.mp4
+          ADUR="$(ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 narration.wav)"
+          VDUR="$(ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 raw_motion.mp4)"
+          FACTOR="$(python -c "print(float('$ADUR')/float('$VDUR'))")"
+          ffmpeg -y -i raw_motion.mp4 -i narration.wav             -filter_complex "[0:v]setpts=PTS*${FACTOR},scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=30[v]"             -map "[v]" -map 1:a:0 -t "$ADUR" -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p             -c:a aac -b:a 160k -ar 48000 -ac 2 rough.mp4
+
+      - name: Build subtitles
+        run: |
+          python - <<'PY'
+          import json,pathlib
+          m=json.load(open('recovered/hougen_audio_manifest.json',encoding='utf-8'))
+          e=sorted([x for x in m if x['ep']==2],key=lambda x:x['seg'])
+          starts=[]; t=0.0
+          for x in e: starts.append(t); t+=float(x['duration_sec'])
+          def ts(v):
+              h=int(v//3600); v-=h*3600; mi=int(v//60); v-=mi*60; s=int(v); cs=int(round((v-s)*100))
+              if cs==100: s+=1; cs=0
+              return f'{h}:{mi:02d}:{s:02d}.{cs:02d}'
+          caps=['屋根から長く垂れ下がった氷。\\N白峰では何と呼ぶ？','答えは「がまだれ」\\N＝ つらら','同じものなのに、\\N呼び名はこんなに違う。','白峰に残る、\\N冬の一語です。']
+          font='Noto Sans CJK JP'
+          lines=['[Script Info]','ScriptType: v4.00+','PlayResX: 720','PlayResY: 1280','ScaledBorderAndShadow: yes','',
+          '[V4+ Styles]','Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
+          f'Style: Subtitle,{font},35,&H00FFFFFF,&H000000FF,&H50000000,&H76000000,-1,0,0,0,100,100,0,0,3,0,0,2,54,54,72,1',
+          f'Style: Region,{font},24,&H00FFFFFF,&H000000FF,&H50000000,&H76000000,-1,0,0,0,100,100,0,0,3,0,0,7,24,24,24,1','',
+          '[Events]','Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
+          f'Dialogue: 0,{ts(0)},{ts(t)},Region,,0,0,0,,石川・白峰']
+          for i,x in enumerate(e):
+              st=starts[i]; en=st+float(x['duration_sec'])-0.08
+              lines.append(f'Dialogue: 0,{ts(st)},{ts(en)},Subtitle,,0,0,0,,{caps[i]}')
+          pathlib.Path('ep2.ass').write_text('\n'.join(lines),encoding='utf-8')
+          PY
+
+      - name: Render final and QA
+        run: |
+          set -euxo pipefail
+          OUT='屋根のつらら、石川・白峰では「がまだれ」｜方言大好きおじさん.mp4'
+          ffmpeg -y -i rough.mp4 -vf "ass=ep2.ass" -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p             -c:a aac -b:a 160k -ar 48000 -ac 2 -movflags +faststart "$OUT"
+          ffprobe -v error -show_entries format=duration -show_streams -of json "$OUT" > qa.json
+          ffmpeg -v error -i "$OUT" -f null -
+          mkdir qa_frames
+          for t in 2 9 17 25; do ffmpeg -y -ss "$t" -i "$OUT" -frames:v 1 -q:v 2 "qa_frames/${t}.jpg"; done
+
+      - name: Upload final
+        uses: actions/upload-artifact@v4
+        with:
+          name: hougen-ep02-ltxfast-final
+          path: |
+            屋根のつらら、石川・白峰では「がまだれ」｜方言大好きおじさん.mp4
+            qa.json
+            qa_frames/
+          retention-days: 1
