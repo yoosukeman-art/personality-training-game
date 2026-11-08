@@ -23,7 +23,7 @@ jobs:
       - name: Verify ffmpeg
         run: |
           set -euxo pipefail
-          ffmpeg -version | head -n 1
+          ffmpeg -version >/dev/null
           fc-match "Noto Sans CJK JP" || true
 
       - name: Download approved motion clips
