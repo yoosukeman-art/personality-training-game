@@ -20,11 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify ffmpeg
+      - name: Prepare video toolchain in the temporary runner
         run: |
           set -euxo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
           ffmpeg -version >/dev/null
-          fc-match "Noto Sans CJK JP" || true
+          fc-match "Noto Sans CJK JP"
 
       - name: Download approved motion clips
         run: |
